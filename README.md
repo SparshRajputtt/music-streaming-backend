@@ -1,7 +1,7 @@
 # 🎵 Music Streaming Backend
 
 A scalable REST API for a music streaming platform built using **Node.js, Express, and MongoDB**.
-Supports authentication, music uploads, and album management with role-based access control.
+Supports authentication, music uploads, album management, and efficient audio streaming with analytics.
 
 ---
 
@@ -13,6 +13,8 @@ Supports authentication, music uploads, and album management with role-based acc
 * 🛡️ Role-based authorization (artist-only uploads)
 * 🍪 Cookie-based authentication
 * 📦 Clean MVC + Service-based architecture
+* ⚡ Chunk-based audio streaming using HTTP Range Requests
+* 📊 Play count tracking for analytics
 
 ---
 
@@ -108,6 +110,8 @@ npm run dev
 
 * `POST /music/upload` → Upload music (Artist only)
 * `GET /music` → Get all music (Authenticated users)
+* `GET /music/:id/stream` → Stream music in chunks
+* `GET /music/:id` → Get music details (includes play count)
 
 ---
 
@@ -119,19 +123,34 @@ npm run dev
 
 ---
 
+## ⚡ Streaming & Analytics
+
+* 🎧 **Chunk-based streaming**
+
+  * Uses HTTP `Range` headers
+  * Enables fast seeking and buffering like real music apps
+
+* 📊 **Play Count Tracking**
+
+  * Increments when streaming starts (`bytes=0`)
+  * Prevents duplicate counting on partial requests
+
+---
+
 ## 🔐 Authentication & Roles
 
-* **User** → Can view music & albums
+* **User** → Can view & stream music
 * **Artist** → Can upload music & create albums
 
 ---
 
 ## 🧠 Future Improvements
 
-* 🎧 Music streaming (audio player)
 * ❤️ Like & playlist system
 * 🔍 Search functionality
-* 📊 Analytics dashboard
+* 📊 Advanced analytics dashboard
+* 💬 Comments & sharing
+* 📱 Frontend integration (React / Next.js)
 
 ---
 
