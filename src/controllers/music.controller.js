@@ -3,7 +3,9 @@ import albumModel from '../models/album.model.js';
 import uploadFile from "../services/storage.service.js";
 import axios from 'axios';
 import dotenv from 'dotenv';
+import userModel from "../models/user.model.js";
 
+import jwt from 'jsonwebtoken';
 dotenv.config();
 
 const uploadMusic = async (req, res) => {
@@ -116,9 +118,42 @@ const getAlbumById = async (req, res) => {
     }
 }
 
+
+/* GET /api/music/stream/:musicId  
+
+This endpoint allows users to stream a music track by its ID. It retrieves the music information from the database, checks if the music exists, and then streams the music file from the storage service (e.g., ImageKit) to the client. The endpoint also handles range requests for streaming and increments the play count of the music when it is streamed for the first time. Additionally, it updates the user's recently played list with the streamed music.
+
+*/
 const streamMusic = async (req, res) => {
     try {
         const musicId = req.params.musicId;
+
+        /* 
+        For testing in browser without authentication we used commented code below:- 
+
+        1- For recentlyPlayed feature and playCount feature we need decoded otherwise through authentication middleware we will have access to used id through REQ.USER.ID ex:-
+
+        WITHOUT AUTHENTICATION:-
+        await userModel.findByIdAndUpdate(decoded.id,
+                {
+                    $pull: { recentlyPlayed: musicId } // Remove the music from the recently played list if it already exists (to avoid duplicates)
+                }
+            );
+        
+
+        WITH AUTHENTICATION:-
+        await userModel.findByIdAndUpdate(req.user.id,
+                {
+                    $pull: { recentlyPlayed: musicId } // Remove the music from the recently played list if it already exists (to avoid duplicates)
+                }
+            );
+
+        const token = req.cookies.token;
+        if(!token){
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        */
 
         const music = await musicModel.findById(musicId);
 
@@ -134,16 +169,39 @@ const streamMusic = async (req, res) => {
             axiosHeaders.Range = range;
         }
 
-        if(range && range.startsWith('bytes=0-')){
+        if (range && range.startsWith('bytes=0-')) {
 
             // Increment play count only for the first request of the music (when range starts with bytes=0-)
-            await musicModel.findByIdAndUpdate(musicId, 
+            await musicModel.findByIdAndUpdate(musicId,
                 {
-                    $inc: {playCount: 1}
+                    $inc: { playCount: 1 }
                 }
-            )
+            );
+
+            // Also, we can add this music to the user's recently played list. We can limit the recently played list to a certain number of items (e.g., 20) to prevent it from growing indefinitely.
+
+            await userModel.findByIdAndUpdate(req.user.id,
+                {
+                    $pull: { recentlyPlayed: musicId } // Remove the music from the recently played list if it already exists (to avoid duplicates)
+                }
+            );
+
+            await userModel.findByIdAndUpdate(req.user.id,
+                {
+                    $push: {
+                        recentlyPlayed: {
+                            $each: [musicId], // Add the music to the recently played list
+                            $position: 0, // Add the music to the beginning of the recently played list
+                            $slice: 20 // Limit the recently played list to 20 items
+                        }
+                    }
+                }
+            );
+
+
         }
 
+        // Make a request to Imagekit to stream the music file in chunks. We use axios to make the request and set the responseType to 'stream' to receive the response as a stream.
         const response = await axios.get(music.uri, {
             headers: axiosHeaders,
             responseType: 'stream'
@@ -177,11 +235,98 @@ const streamMusic = async (req, res) => {
 }
 
 
+/* GET /api/music/recently-played 
+   Fetches the recently played music tracks of the user. 
+*/
+const getRecentlyPlayed = async (req, res) => {
+    try {
+        const user = await userModel.findById(req.user.id).populate('recentlyPlayed');
+        res.status(200).json({
+            recentlyPlayed: user.recentlyPlayed.map(music => ({
+                _id: music._id,
+                title: music.title,
+            }))
+        })
+
+    } catch (error) {
+        console.log("Error fetching recently played musics:", error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
+}
+
+
+/* POST /api/music/like/:musicId 
+   Api for liking and unliking songs and storing for the user.
+*/
+const toggleLike = async (req, res) => {
+    try {
+        const musicId = req.params.musicId;
+
+        console.log("User:", req.user.id);
+        console.log("Music:", musicId);
+
+        const user = await userModel.findById(req.user.id);
+
+        const isLiked = (user.likedSongs || []).some(
+            id => id.toString() === musicId
+        );
+
+        let updatedUser;
+
+        if (isLiked) {
+            updatedUser = await userModel.findByIdAndUpdate(
+                req.user.id,
+                { $pull: { likedSongs: musicId } },
+                { new: true }
+            );
+        } else {
+            updatedUser = await userModel.findByIdAndUpdate(
+                req.user.id,
+                { $addToSet: { likedSongs: musicId } },
+                { new: true }
+            );
+        }
+
+        console.log("Updated likedSongs:", updatedUser.likedSongs);
+
+        res.json({
+            message: isLiked ? "Song unliked" : "Song liked"
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Error toggling like" });
+    }
+};
+
+
+const getLikedSongs = async (req, res) => {
+    try {
+
+        const user = await userModel.findById(req.user.id).populate('likedSongs');
+
+        res.json({
+            likedSongs: user.likedSongs.map(music => ({
+                _id: music._id,
+                title: music.title,
+            }))
+        })
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error." });
+    }
+}
+
+
 export default {
     uploadMusic,
     uploadAlbum,
     getAllMusics,
     getAllAlbums,
     getAlbumById,
-    streamMusic
+    streamMusic,
+    getRecentlyPlayed,
+    toggleLike,
+    getLikedSongs
 }
