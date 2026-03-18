@@ -1,6 +1,7 @@
 import musicModel from "../models/music.model.js";
 import albumModel from '../models/album.model.js';
 import uploadFile from "../services/storage.service.js";
+import axios from 'axios';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -115,11 +116,72 @@ const getAlbumById = async (req, res) => {
     }
 }
 
+const streamMusic = async (req, res) => {
+    try {
+        const musicId = req.params.musicId;
+
+        const music = await musicModel.findById(musicId);
+
+        if (!music) {
+            return res.status(404).json({ message: "Music not found." });
+        }
+
+        const range = req.headers.range;
+
+        const axiosHeaders = {}
+
+        if (range) {
+            axiosHeaders.Range = range;
+        }
+
+        if(range && range.startsWith('bytes=0-')){
+
+            // Increment play count only for the first request of the music (when range starts with bytes=0-)
+            await musicModel.findByIdAndUpdate(musicId, 
+                {
+                    $inc: {playCount: 1}
+                }
+            )
+        }
+
+        const response = await axios.get(music.uri, {
+            headers: axiosHeaders,
+            responseType: 'stream'
+        });
+
+        //Forwading headers from the imagekit cloud service to the client.
+        if (response.status === 206 && response.headers['content-range']) {
+
+            res.writeHead(206, {
+                'Content-Type': response.headers['content-type'],
+                'Content-Length': response.headers['content-length'],
+                'Content-Range': response.headers['content-range'],
+                'Accept-Ranges': 'bytes'
+            });
+
+        } else {
+            // fallback for first browser request
+            res.writeHead(200, {
+                'Content-Type': response.headers['content-type'],
+                'Content-Length': response.headers['content-length']
+            });
+        }
+
+        //Pipe the response data from the music streaming service to the client.
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.log("Error streaming music:", error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
+}
+
 
 export default {
     uploadMusic,
     uploadAlbum,
     getAllMusics,
     getAllAlbums,
-    getAlbumById
+    getAlbumById,
+    streamMusic
 }

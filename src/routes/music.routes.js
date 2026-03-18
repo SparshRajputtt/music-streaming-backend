@@ -14,5 +14,6 @@ router.post('/album', authMiddleware.authArtist , musicController.uploadAlbum);
 router.get('/', authMiddleware.authUser , musicController.getAllMusics);
 router.get('/albums', authMiddleware.authUser , musicController.getAllAlbums);
 router.get('/albums/:albumId', authMiddleware.authUser , musicController.getAlbumById);
+router.get('/stream/:musicId', /*authMiddleware.authUser,*/ musicController.streamMusic);
 
 export default router;
