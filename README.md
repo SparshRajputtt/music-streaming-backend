@@ -1,7 +1,7 @@
 # 🎵 Music Streaming Backend
 
 A scalable REST API for a music streaming platform built using **Node.js, Express, and MongoDB**.
-Supports authentication, music uploads, album management, and efficient audio streaming with analytics.
+Supports authentication, music uploads, album management, efficient audio streaming, and user activity tracking.
 
 ---
 
@@ -14,85 +14,10 @@ Supports authentication, music uploads, album management, and efficient audio st
 * 🍪 Cookie-based authentication
 * 📦 Clean MVC + Service-based architecture
 * ⚡ Chunk-based audio streaming using HTTP Range Requests
+* ▶️ Resume & seek support via byte-range streaming
 * 📊 Play count tracking for analytics
-
----
-
-## 🛠️ Tech Stack
-
-* Node.js
-* Express.js
-* MongoDB & Mongoose
-* JWT (Authentication)
-* Multer (File uploads)
-* ImageKit (Media storage)
-
----
-
-## 📂 Project Structure
-
-```
-src/
-│
-├── controllers/
-│   ├── auth.controller.js
-│   └── music.controller.js
-│
-├── models/
-│   ├── user.model.js
-│   ├── music.model.js
-│   └── album.model.js
-│
-├── routes/
-│   ├── auth.routes.js
-│   └── music.routes.js
-│
-├── middlewares/
-│   └── auth.middleware.js
-│
-├── services/
-│   └── storage.service.js
-│
-├── db/
-│   └── db.js
-│
-└── app.js
-```
-
----
-
-## ⚙️ Setup Instructions
-
-1. Clone the repository
-
-```
-git clone https://github.com/your-username/music-streaming-backend.git
-cd music-streaming-backend
-```
-
-2. Install dependencies
-
-```
-npm install
-```
-
-3. Create a `.env` file
-
-```
-PORT=5000
-MONGO_URI=your_mongodb_connection
-JWT_SECRET=your_secret_key
-
-IMAGEKIT_PUBLIC_KEY=your_public_key
-IMAGEKIT_PRIVATE_KEY=your_private_key
-IMAGEKIT_URL_ENDPOINT=your_url_endpoint
-```
-
-4. Run the server
-
-```
-npm run dev
-```
+* 🕘 Recently played history tracking
+* ❤️ Like / Unlike songs (toggle system)
 
 ---
 
@@ -110,8 +35,8 @@ npm run dev
 
 * `POST /music/upload` → Upload music (Artist only)
 * `GET /music` → Get all music (Authenticated users)
-* `GET /music/:id/stream` → Stream music in chunks
 * `GET /music/:id` → Get music details (includes play count)
+* `GET /music/stream/:musicId` → Stream music in chunks
 
 ---
 
@@ -123,30 +48,38 @@ npm run dev
 
 ---
 
+### 🕘 User Activity Routes
+
+* `GET /music/history` → Get recently played songs
+* `POST /music/like/:musicId` → Toggle like/unlike song
+* `GET /music/liked` → Get liked songs
+
+---
+
 ## ⚡ Streaming & Analytics
 
 * 🎧 **Chunk-based streaming**
 
   * Uses HTTP `Range` headers
-  * Enables fast seeking and buffering like real music apps
+  * Returns `206 Partial Content`
+  * Enables fast seeking, buffering, and resume playback
 
 * 📊 **Play Count Tracking**
 
-  * Increments when streaming starts (`bytes=0`)
-  * Prevents duplicate counting on partial requests
+  * Increments only when playback starts (`bytes=0`)
+  * Prevents duplicate counting during seek/resume
 
 ---
 
 ## 🔐 Authentication & Roles
 
-* **User** → Can view & stream music
+* **User** → Can view, stream, like music & track history
 * **Artist** → Can upload music & create albums
 
 ---
 
 ## 🧠 Future Improvements
 
-* ❤️ Like & playlist system
 * 🔍 Search functionality
 * 📊 Advanced analytics dashboard
 * 💬 Comments & sharing
